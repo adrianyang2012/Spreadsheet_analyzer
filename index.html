@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLD Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-section {
+            border: 2px dashed #ddd;
+            padding: 40px;
+            text-align: center;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+        .upload-section:hover {
+            border-color: #007bff;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100px;
+            margin: 0 10px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #e9ecef;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .console-output {
+            background-color: #2d3748;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .top-items {
+            background-color: #e8f5e8;
+            border-left: 4px solid #28a745;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> CLD Analyzer</h1>
+        
+        <div class="upload-section">
+            <h3>Upload your CSV file</h3>
+            <input type="file" id="csvFile" accept=".csv" />
+            <br><br>
+            <label for="numToChoose">Number of top items to display:</label>
+            <input type="number" id="numToChoose" value="5" min="1" />
+            <br><br>
+            <button onclick="analyzeCSV()" id="analyzeBtn" disabled>Analyze CSV</button>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="results" class="results" style="display: none;">
+
+
+            <div class="section">
+                <h3> Column Averages</h3>
+                <div id="averages"></div>
+            </div>
+
+
+
+            <div class="section top-items">
+                <h3> Top Clones</h3>
+                <div id="topItems"></div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <script>
+        let csvData = [];
+        let headers = [];
+
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            if (file && file.type === 'text/csv') {
+                analyzeBtn.disabled = false;
+            } else {
+                analyzeBtn.disabled = true;
+            }
+        });
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            const result = [];
+            
+            for (let line of lines) {
+                const row = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        row.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                row.push(current.trim());
+                result.push(row);
+            }
+            
+            return result;
+        }
+
+        function analyzeCSV() {
+            hideError();
+            
+            const fileInput = document.getElementById('csvFile');
+            const numToChoose = parseInt(document.getElementById('numToChoose').value);
+            
+            if (!fileInput.files[0]) {
+                showError('Please select a CSV file.');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    const rows = parseCSV(text);
+                    
+                    if (rows.length < 2) {
+                        showError('CSV file must have at least a header row and one data row.');
+                        return;
+                    }
+
+                    // Following Python code exactly:
+                    // Extract headers
+                    headers = rows[0];
+                    const dataRows = rows.slice(1);
+                    
+                    console.log(headers);
+                    
+                    // Create dictionary and li arrays (following Python structure)
+                    const dic = {};
+                    // Make sure li has enough arrays for all columns that actually exist in the data
+                    const maxColumns = Math.max(...rows.map(row => row.length));
+                    const li = Array(maxColumns).fill().map(() => []);
+                    
+                    // Process rows exactly like Python
+                    for (let row of dataRows) {
+                        for (let idx = 0; idx < row.length; idx++) {
+                            if (row[idx] === '') {
+                                li[idx].push(0);
+                            } else {
+                                li[idx].push(parseFloat(row[idx]) || 0);
+                            }
+                        }
+                        if (row.length > 0) {
+                            dic[row[0]] = row.slice(1).map(x => x === '' ? 0 : parseFloat(x) || 0);
+                        }
+                    }
+
+                    // Calculate averages
+                    const av = li.map(x => x.reduce((sum, val) => sum + val, 0) / x.length);
+
+                    // Display averages - show all columns that have data
+                    let avgHtml = '<table><tr><th>Column</th><th>Average</th></tr>';
+                    for (let i = 0; i < av.length; i++) {
+                        const columnName = i < headers.length ? headers[i] : `Column ${i}`;
+                        avgHtml += `<tr><td>${columnName}</td><td>${av[i].toFixed(4)}</td></tr>`;
+                    }
+                    avgHtml += '</table>';
+                    document.getElementById('averages').innerHTML = avgHtml;
+
+                    // Process each item following Python logic exactly
+                    const sumThing = [];
+                    const fullList = [headers.concat(['Sum'])];
+
+                    for (let key in dic) {
+                        let sums = 0;
+                        let outputLine = key + ' ';
+                        const liRow = [];
+                        
+                        for (let i = 0; i < dic[key].length; i++) {
+                            const comparison = dic[key][i] > av[i + 1] ? 1 : 0;
+                            sums += comparison;
+                            outputLine += comparison + ' ';
+                            liRow.push(comparison);
+                        }
+                        
+                        outputLine += sums;
+                        console.log(outputLine);
+                        
+                        fullList.push([key].concat(liRow).concat([sums]));
+                        sumThing.push([key, sums]);
+                    }
+
+                    // Sort by score descending and get top items
+                    const maxItems = sumThing.sort((a, b) => b[1] - a[1]).slice(0, numToChoose);
+
+                    // Display top items exactly like Python print
+                    let topItemsHtml = '<div>';
+                    for (let item of maxItems) {
+                        console.log(`item ${item[0]} has score ${item[1]}`);
+                        topItemsHtml += `<div style="margin: 10px 0; padding: 10px; background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            item <strong>${item[0]}</strong> has score <strong>${item[1]}</strong>
+                        </div>`;
+                    }
+                    topItemsHtml += '</div>';
+                    document.getElementById('topItems').innerHTML = topItemsHtml;
+
+                    document.getElementById('results').style.display = 'block';
+
+                } catch (error) {
+                    showError('Error processing CSV file: ' + error.message);
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
