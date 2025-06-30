@@ -190,6 +190,30 @@
             color: #333;
             margin-bottom: 10px;
         }
+        .y-axis {
+            position: absolute;
+            left: 8px;
+            top: 20px;
+            height: calc(100% - 80px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #667;
+            font-weight: bold;
+        }
+        .y-axis-label {
+            position: absolute;
+            left: -45px;
+            top: 50%;
+            transform: rotate(-90deg);
+            transform-origin: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            white-space: nowrap;
+        }
+
     </style>
 </head>
 <body>
@@ -392,8 +416,8 @@
                     let chartHtml = `
                         <div class="bar-chart">
                             <div class="chart-container">
-                                <div class="y-axis">`;
-                    
+                                <div class="y-axis">
+                                    <div class="y-axis-label">Manufacturability Score</div>`;
                     // Add Y-axis labels
                     for (let label of yAxisLabels) {
                         chartHtml += `<div>${label}</div>`;
