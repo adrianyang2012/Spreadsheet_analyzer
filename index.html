@@ -311,6 +311,11 @@
         <div id="results" class="results" style="display: none;">
 
 
+           
+            <div class="section top-items">
+                <h3> Top Clones</h3>
+                <div id="topItems"></div>
+            </div>
             <div class="section">
                 <h3> Manufacturability Score</h3>
                 <p>Range: <span id="scoreRange"></span> | Total items: <span id="totalItems"></span></p>
@@ -318,16 +323,8 @@
             </div>
 
 
-            <div class="section">
-                <h3> PCoA Analysis</h3>
-                <p>Principal Coordinates Analysis showing item relationships in 2D space</p>
-                <div id="pcoaChart"></div>
-            </div>
 
-            <div class="section top-items">
-                <h3> Top Clones</h3>
-                <div id="topItems"></div>
-            </div>
+            
 
 
         </div>
@@ -573,64 +570,7 @@
             reader.readAsText(file);
         }
 
-        function generatePCoA(allItems, topItemNames) {
-            // Simple 2D projection using score and a secondary metric for demonstration
-            // In real PCoA, this would involve distance matrices and eigenvalue decomposition
-            
-            const containerWidth = 500;
-            const containerHeight = 400;
-            const margin = 50;
-            
-            // Create synthetic coordinates based on available data
-            // PC1: Based on score (primary component)
-            // PC2: Based on item name hash (secondary component for spread)
-            const coords = allItems.map(item => {
-                const score = item[1];
-                const nameHash = item[0].split('').reduce((hash, char) => hash + char.charCodeAt(0), 0);
-                
-                // Normalize coordinates to container size with margins
-                const x = margin + ((score + 1) / (Math.max(...allItems.map(i => i[1])) + 2)) * (containerWidth - 2 * margin);
-                const y = margin + ((nameHash % 100) / 100) * (containerHeight - 2 * margin);
-                
-                return {
-                    name: item[0],
-                    score: item[1],
-                    x: x,
-                    y: y,
-                    isTop: topItemNames.has(item[0])
-                };
-            });
-            
-            // Create PCoA visualization
-            let pcoaHtml = `
-                <div class="pcoa-container" style="width: ${containerWidth}px; height: ${containerHeight}px;">
-                    <div class="pcoa-axes">
-                        <div class="pcoa-axis-x"></div>
-                        <div class="pcoa-axis-y"></div>
-                        <div class="pcoa-axis-label x-axis">PC1 (Score-based)</div>
-                        <div class="pcoa-axis-label y-axis">PC2</div>
-                    </div>`;
-            
-            // Add points
-            coords.forEach(point => {
-                const pointClass = point.isTop ? 'top-item' : 'regular-item';
-                pcoaHtml += `
-                    <div class="pcoa-point ${pointClass}" 
-                         style="left: ${point.x}px; top: ${point.y}px;"
-                         title="${point.name} (Score: ${point.score})">
-                    </div>
-                    <div class="pcoa-label" 
-                         style="left: ${point.x + 10}px; top: ${point.y - 15}px;">
-                        ${point.name}
-                    </div>`;
-            });
-            
-            pcoaHtml += '</div>';
-            
-            document.getElementById('pcoaChart').innerHTML = pcoaHtml;
-            
-            console.log('PCoA coordinates:', coords);
-        }
+        
     </script>
 </body>
 </html>
