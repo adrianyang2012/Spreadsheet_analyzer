@@ -159,8 +159,6 @@
             font-size: 11px;
             font-weight: bold;
             text-align: center;
-            transform: rotate(-45deg);
-            transform-origin: center;
             margin-top: 15px;
             width: 60px;
             overflow: hidden;
@@ -182,7 +180,7 @@
             flex-direction: column;
             justify-content: space-between;
             font-size: 12px;
-            color: #666;
+            color: #667;
             font-weight: bold;
         }
         .chart-title {
@@ -370,13 +368,18 @@
                         sumThing.push([key, sums]);
                     }
 
-                    // Create bar chart for all items (sorted by score)
-                    const allItemsSorted = sumThing.sort((a, b) => b[1] - a[1]);
-                    const maxScore = Math.max(...allItemsSorted.map(item => item[1]));
-                    const minScore = Math.min(...allItemsSorted.map(item => item[1]));
+                    // Create bar chart for all items (keep original order, don't sort)
+                    const allItems = [...sumThing]; // Keep original order
+                    const maxScore = Math.max(...allItems.map(item => item[1]));
+                    const minScore = Math.min(...allItems.map(item => item[1]));
                     
-                    console.log(`All scores:`, allItemsSorted.map(item => `${item[0]}:${item[1]}`));
+                    console.log(`All scores:`, allItems.map(item => `${item[0]}:${item[1]}`));
                     console.log(`Score range: ${minScore} to ${maxScore}`);
+                    
+                    // Get top items for coloring (still sorted for top items section)
+                    const sortedForTop = [...sumThing].sort((a, b) => b[1] - a[1]);
+                    const topItems = sortedForTop.slice(0, numToChoose);
+                    const topItemNames = new Set(topItems.map(item => item[0]));
                     
                     // Create Y-axis scale
                     const yAxisSteps = 5;
@@ -398,8 +401,8 @@
                     
                     chartHtml += `</div>`;
                     
-                    // Add bars with fixed pixel heights instead of percentages
-                    for (let item of allItemsSorted) {
+                    // Add bars with fixed pixel heights and conditional coloring
+                    for (let item of allItems) {
                         let heightPx;
                         
                         if (maxScore === 0) {
@@ -415,12 +418,18 @@
                             heightPx = Math.round((relativeScore / scoreRange) * 250 + 30);
                         }
                         
-                        console.log(`Item: ${item[0]}, Score: ${item[1]}, Height: ${heightPx}px`);
+                        // Determine color based on whether item is in top list
+                        const isTopItem = topItemNames.has(item[0]);
+                        const barColor = isTopItem 
+                            ? 'linear-gradient(180deg, #007bff, #0056b3)' // Blue for top items
+                            : 'linear-gradient(180deg, #28a745, #20c997)'; // Green for others
+                        
+                        console.log(`Item: ${item[0]}, Score: ${item[1]}, Height: ${heightPx}px, Top: ${isTopItem}`);
                         
                         chartHtml += `
                             <div class="bar-column">
                                 <div class="bar-value">${item[1]}</div>
-                                <div class="bar-fill" style="height: ${heightPx}px;"></div>
+                                <div class="bar-fill" style="height: ${heightPx}px; background: ${barColor};"></div>
                                 <div class="bar-label">${item[0]}</div>
                             </div>`;
                     }
@@ -430,10 +439,10 @@
                     
                     // Update the info in the section header
                     document.getElementById('scoreRange').textContent = `${minScore}-${maxScore}`;
-                    document.getElementById('totalItems').textContent = allItemsSorted.length;
+                    document.getElementById('totalItems').textContent = allItems.length;
 
-                    // Get top items for the top items section
-                    const maxItems = allItemsSorted.slice(0, numToChoose);
+                    // Get top items for the top items section (still sorted)
+                    const maxItems = topItems;
 
                     // Display top items exactly like Python print
                     let topItemsHtml = '<div>';
