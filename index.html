@@ -116,6 +116,82 @@
             border-radius: 4px;
             margin: 10px 0;
         }
+        .bar-chart {
+            width: 100%;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+            overflow-y: visible;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            border-left: 3px solid #333;
+            border-bottom: 3px solid #333;
+            margin: 20px 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-start;
+            padding: 20px 20px 60px 60px;
+            gap: 12px;
+            width: max-content;
+            min-width: 100%;
+        }
+        .bar-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 60px;
+            flex-shrink: 0;
+        }
+        .bar-fill {
+            width: 40px;
+            background: linear-gradient(180deg, #28a745, #20c997);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.5s ease;
+            margin-bottom: 5px;
+            min-height: 20px;
+            max-height: 300px;
+        }
+        .bar-label {
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+            transform: rotate(-45deg);
+            transform-origin: center;
+            margin-top: 15px;
+            width: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .bar-value {
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .y-axis {
+            position: absolute;
+            left: 8px;
+            top: 20px;
+            height: calc(100% - 80px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            font-weight: bold;
+        }
+        .chart-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -138,9 +214,11 @@
 
 
             <div class="section">
-                <h3> Column Averages</h3>
-                <div id="averages"></div>
+                <h3> Score Bar Chart</h3>
+                <p>Range: <span id="scoreRange"></span> | Total items: <span id="totalItems"></span></p>
+                <div id="scoreChart"></div>
             </div>
+
 
 
 
@@ -251,7 +329,8 @@
                                 li[idx].push(parseFloat(row[idx]) || 0);
                             }
                         }
-                        if (row.length > 0) {
+                        // Only add to dictionary if row[0] is not a header and has valid data
+                        if (row.length > 0 && row[0] && row[0] !== headers[0]) {
                             dic[row[0]] = row.slice(1).map(x => x === '' ? 0 : parseFloat(x) || 0);
                         }
                     }
@@ -259,40 +338,102 @@
                     // Calculate averages
                     const av = li.map(x => x.reduce((sum, val) => sum + val, 0) / x.length);
 
-                    // Display averages - show all columns that have data
-                    let avgHtml = '<table><tr><th>Column</th><th>Average</th></tr>';
-                    for (let i = 0; i < av.length; i++) {
-                        const columnName = i < headers.length ? headers[i] : `Column ${i}`;
-                        avgHtml += `<tr><td>${columnName}</td><td>${av[i].toFixed(4)}</td></tr>`;
-                    }
-                    avgHtml += '</table>';
-                    document.getElementById('averages').innerHTML = avgHtml;
-
                     // Process each item following Python logic exactly
                     const sumThing = [];
                     const fullList = [headers.concat(['Sum'])];
+
+                    console.log('Processing items with averages:', av);
 
                     for (let key in dic) {
                         let sums = 0;
                         let outputLine = key + ' ';
                         const liRow = [];
                         
+                        console.log(`\nProcessing ${key}:`, dic[key]);
+                        
                         for (let i = 0; i < dic[key].length; i++) {
-                            const comparison = dic[key][i] > av[i + 1] ? 1 : 0;
+                            const itemValue = dic[key][i];
+                            const avgValue = av[i + 1];
+                            const comparison = itemValue > avgValue ? 1 : 0;
                             sums += comparison;
                             outputLine += comparison + ' ';
                             liRow.push(comparison);
+                            
+                            console.log(`  Column ${i}: ${itemValue} > ${avgValue} = ${comparison}`);
                         }
                         
                         outputLine += sums;
+                        console.log(`Final score for ${key}: ${sums}`);
                         console.log(outputLine);
                         
                         fullList.push([key].concat(liRow).concat([sums]));
                         sumThing.push([key, sums]);
                     }
 
-                    // Sort by score descending and get top items
-                    const maxItems = sumThing.sort((a, b) => b[1] - a[1]).slice(0, numToChoose);
+                    // Create bar chart for all items (sorted by score)
+                    const allItemsSorted = sumThing.sort((a, b) => b[1] - a[1]);
+                    const maxScore = Math.max(...allItemsSorted.map(item => item[1]));
+                    const minScore = Math.min(...allItemsSorted.map(item => item[1]));
+                    
+                    console.log(`All scores:`, allItemsSorted.map(item => `${item[0]}:${item[1]}`));
+                    console.log(`Score range: ${minScore} to ${maxScore}`);
+                    
+                    // Create Y-axis scale
+                    const yAxisSteps = 5;
+                    let yAxisLabels = [];
+                    for (let i = 0; i <= yAxisSteps; i++) {
+                        yAxisLabels.push(Math.round((maxScore * i) / yAxisSteps));
+                    }
+                    yAxisLabels.reverse(); // Top to bottom
+                    
+                    let chartHtml = `
+                        <div class="bar-chart">
+                            <div class="chart-container">
+                                <div class="y-axis">`;
+                    
+                    // Add Y-axis labels
+                    for (let label of yAxisLabels) {
+                        chartHtml += `<div>${label}</div>`;
+                    }
+                    
+                    chartHtml += `</div>`;
+                    
+                    // Add bars with fixed pixel heights instead of percentages
+                    for (let item of allItemsSorted) {
+                        let heightPx;
+                        
+                        if (maxScore === 0) {
+                            // All scores are 0
+                            heightPx = 20;
+                        } else if (maxScore === minScore) {
+                            // All scores are the same non-zero value
+                            heightPx = 150;
+                        } else {
+                            // Scale from 30px to 280px based on score
+                            const scoreRange = maxScore - minScore;
+                            const relativeScore = item[1] - minScore;
+                            heightPx = Math.round((relativeScore / scoreRange) * 250 + 30);
+                        }
+                        
+                        console.log(`Item: ${item[0]}, Score: ${item[1]}, Height: ${heightPx}px`);
+                        
+                        chartHtml += `
+                            <div class="bar-column">
+                                <div class="bar-value">${item[1]}</div>
+                                <div class="bar-fill" style="height: ${heightPx}px;"></div>
+                                <div class="bar-label">${item[0]}</div>
+                            </div>`;
+                    }
+                    
+                    chartHtml += `</div></div>`;
+                    document.getElementById('scoreChart').innerHTML = chartHtml;
+                    
+                    // Update the info in the section header
+                    document.getElementById('scoreRange').textContent = `${minScore}-${maxScore}`;
+                    document.getElementById('totalItems').textContent = allItemsSorted.length;
+
+                    // Get top items for the top items section
+                    const maxItems = allItemsSorted.slice(0, numToChoose);
 
                     // Display top items exactly like Python print
                     let topItemsHtml = '<div>';
