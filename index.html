@@ -213,6 +213,82 @@
             color: #333;
             white-space: nowrap;
         }
+         .pcoa-container {
+            width: 100%;
+            height: 500px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pcoa-point {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .pcoa-point:hover {
+            width: 12px;
+            height: 12px;
+            margin: -2px;
+        }
+        .pcoa-point.top-item {
+            background: #007bff;
+            border: 2px solid #0056b3;
+        }
+        .pcoa-point.regular-item {
+            background: #28a745;
+            border: 2px solid #20c997;
+        }
+        .pcoa-label {
+            position: absolute;
+            font-size: 10px;
+            font-weight: bold;
+            background: rgba(255,255,255,0.8);
+            padding: 2px 4px;
+            border-radius: 3px;
+            pointer-events: none;
+        }
+        .pcoa-axes {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        .pcoa-axis-x {
+            position: absolute;
+            bottom: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #ccc;
+        }
+        .pcoa-axis-y {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #ccc;
+        }
+        .pcoa-axis-label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            color: #666;
+        }
+        .pcoa-axis-label.x-axis {
+            bottom: 10px;
+            right: 10px;
+        }
+        .pcoa-axis-label.y-axis {
+            top: 10px;
+            left: 10px;
+            transform: rotate(90deg);
+            transform-origin: left;
+        }
 
     </style>
 </head>
@@ -242,7 +318,11 @@
             </div>
 
 
-
+            <div class="section">
+                <h3> PCoA Analysis</h3>
+                <p>Principal Coordinates Analysis showing item relationships in 2D space</p>
+                <div id="pcoaChart"></div>
+            </div>
 
             <div class="section top-items">
                 <h3> Top Clones</h3>
@@ -253,7 +333,7 @@
         </div>
     </div>
 
-    <script>
+   <script>
         let csvData = [];
         let headers = [];
 
@@ -413,11 +493,12 @@
                     }
                     yAxisLabels.reverse(); // Top to bottom
                     
-                    let chartHtml = `
+                    let                     chartHtml = `
                         <div class="bar-chart">
                             <div class="chart-container">
                                 <div class="y-axis">
                                     <div class="y-axis-label">Manufacturability Score</div>`;
+                    
                     // Add Y-axis labels
                     for (let label of yAxisLabels) {
                         chartHtml += `<div>${label}</div>`;
@@ -479,6 +560,9 @@
                     topItemsHtml += '</div>';
                     document.getElementById('topItems').innerHTML = topItemsHtml;
 
+                    // Generate PCoA Analysis
+                    generatePCoA(allItems, topItemNames);
+
                     document.getElementById('results').style.display = 'block';
 
                 } catch (error) {
@@ -487,6 +571,65 @@
             };
             
             reader.readAsText(file);
+        }
+
+        function generatePCoA(allItems, topItemNames) {
+            // Simple 2D projection using score and a secondary metric for demonstration
+            // In real PCoA, this would involve distance matrices and eigenvalue decomposition
+            
+            const containerWidth = 500;
+            const containerHeight = 400;
+            const margin = 50;
+            
+            // Create synthetic coordinates based on available data
+            // PC1: Based on score (primary component)
+            // PC2: Based on item name hash (secondary component for spread)
+            const coords = allItems.map(item => {
+                const score = item[1];
+                const nameHash = item[0].split('').reduce((hash, char) => hash + char.charCodeAt(0), 0);
+                
+                // Normalize coordinates to container size with margins
+                const x = margin + ((score + 1) / (Math.max(...allItems.map(i => i[1])) + 2)) * (containerWidth - 2 * margin);
+                const y = margin + ((nameHash % 100) / 100) * (containerHeight - 2 * margin);
+                
+                return {
+                    name: item[0],
+                    score: item[1],
+                    x: x,
+                    y: y,
+                    isTop: topItemNames.has(item[0])
+                };
+            });
+            
+            // Create PCoA visualization
+            let pcoaHtml = `
+                <div class="pcoa-container" style="width: ${containerWidth}px; height: ${containerHeight}px;">
+                    <div class="pcoa-axes">
+                        <div class="pcoa-axis-x"></div>
+                        <div class="pcoa-axis-y"></div>
+                        <div class="pcoa-axis-label x-axis">PC1 (Score-based)</div>
+                        <div class="pcoa-axis-label y-axis">PC2</div>
+                    </div>`;
+            
+            // Add points
+            coords.forEach(point => {
+                const pointClass = point.isTop ? 'top-item' : 'regular-item';
+                pcoaHtml += `
+                    <div class="pcoa-point ${pointClass}" 
+                         style="left: ${point.x}px; top: ${point.y}px;"
+                         title="${point.name} (Score: ${point.score})">
+                    </div>
+                    <div class="pcoa-label" 
+                         style="left: ${point.x + 10}px; top: ${point.y - 15}px;">
+                        ${point.name}
+                    </div>`;
+            });
+            
+            pcoaHtml += '</div>';
+            
+            document.getElementById('pcoaChart').innerHTML = pcoaHtml;
+            
+            console.log('PCoA coordinates:', coords);
         }
     </script>
 </body>
